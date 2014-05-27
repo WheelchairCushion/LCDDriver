@@ -1,0 +1,446 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         ; LCD.s
+    2 00000000         ; Student names: change this to your names or look very 
+                       silly
+    3 00000000         ; Last modification date: change this to the last modifi
+                       cation date or look very silly
+    4 00000000         
+    5 00000000         ; Runs on LM4F120 or TM4C123
+    6 00000000         ; EE319K lab 7 device driver for the Kentec EB-LM4F120-L
+                       35
+    7 00000000         ; This is the lowest level driver that interacts directl
+                       y with hardware
+    8 00000000         ; As part of Lab 7, students need to implement these thr
+                       ee functions
+    9 00000000         ;
+   10 00000000         ;  Data pin assignments:
+   11 00000000         ;  PB0-7   LCD parallel data input
+   12 00000000         ;
+   13 00000000         ;  Control pin assignments:
+   14 00000000         ;  PA4     RD  Read control signal             ---------
+                       ----------------
+   15 00000000         ;  PA5     WR  Write control signal            | PA7 | P
+                       A6 | PA5 | PA4 |
+   16 00000000         ;  PA6     RS  Register/Data select signal     | CS  | R
+                       S  | WR  | RD  |
+   17 00000000         ;  PA7     CS  Chip select signal              ---------
+                       ----------------
+   18 00000000         ;
+   19 00000000         ;  Touchpad pin assignments:
+   20 00000000         ;  PA2     Y-                                  ---------
+                       ----  -------------
+   21 00000000         ;  PA3     X-                                  | PA3 | P
+                       A2 |  | PE5 | PE4 |
+   22 00000000         ;  PE4     X+    AIN9                          | X-  | Y
+                       -  |  | Y+  | X+  |
+   23 00000000         ;  PE5     Y+    AIN8                          ---------
+                       ----  -------------
+   24 00000000         
+   25 00000000                 EXPORT           LCD_GPIOInit
+   26 00000000                 EXPORT           LCD_WriteCommand
+   27 00000000                 EXPORT           LCD_WriteData
+   28 00000000         
+   29 00000000                 AREA             |.text|, CODE, READONLY, ALIGN=
+2
+   30 00000000                 THUMB
+   31 00000000                 ALIGN
+   32 00000000 400FE108 
+                       SYSCTL_RCGC2_R
+                               EQU              0x400FE108
+   33 00000000 400043FC 
+                       GPIO_PORTA_DATA_R
+                               EQU              0x400043FC
+   34 00000000 40004400 
+                       GPIO_PORTA_DIR_R
+                               EQU              0x40004400
+   35 00000000 40004420 
+                       GPIO_PORTA_AFSEL_R
+                               EQU              0x40004420
+   36 00000000 4000451C 
+                       GPIO_PORTA_DEN_R
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+                               EQU              0x4000451C
+   37 00000000 400053FC 
+                       GPIO_PORTB_DATA_R
+                               EQU              0x400053FC
+   38 00000000 40005400 
+                       GPIO_PORTB_DIR_R
+                               EQU              0x40005400
+   39 00000000 40005420 
+                       GPIO_PORTB_AFSEL_R
+                               EQU              0x40005420
+   40 00000000 4000551C 
+                       GPIO_PORTB_DEN_R
+                               EQU              0x4000551C
+   41 00000000         
+   42 00000000 400043C0 
+                       LCD_CTRL
+                               EQU              0x400043C0
+   43 00000000 400053FC 
+                       LCD_DATA
+                               EQU              0x400053FC
+   44 00000000         
+   45 00000000         ; ************** LCD_GPIOInit **************************
+                       **
+   46 00000000         ; Initializes Ports A and B for Kentec EB-LM4F120-L35
+   47 00000000         ; Port A bits 4-7 are output to four control signals
+   48 00000000         ; Port B bits 0-7 are output data is the data bus 
+   49 00000000         ; Initialize all control signals high (off)
+   50 00000000         ;  PA4     RD  Read control signal             ---------
+                       ----------------
+   51 00000000         ;  PA5     WR  Write control signal            | PA7 | P
+                       A6 | PA5 | PA4 |
+   52 00000000         ;  PA6     RS  Register/Data select signal     | CS  | R
+                       S  | WR  | RD  |
+   53 00000000         ;  PA7     CS  Chip select signal              ---------
+                       ----------------
+   54 00000000         ; wait 40 us
+   55 00000000         ; Invariables: This function must not permanently modify
+                        registers R4 to R11
+   56 00000000         LCD_GPIOInit
+   57 00000000 492D            LDR              R1, =SYSCTL_RCGC2_R 
+                                                            ; activate clock 
+   58 00000002 6808            LDR              R0, [R1]
+   59 00000004 F040 0003       ORR              R0, R0, #0x03 ; set bits 1 and 
+                                                            2 for Port A and Po
+                                                            rt B
+   60 00000008 6008            STR              R0, [R1]
+   61 0000000A BF00            NOP
+   62 0000000C BF00            NOP
+   63 0000000E BF00            NOP
+   64 00000010 BF00            NOP
+   65 00000012 492A            LDR              R1, =GPIO_PORTA_AFSEL_R
+   66 00000014 F04F 0000       MOV              R0, #0
+   67 00000018 6008            STR              R0, [R1]
+   68 0000001A 4929            LDR              R1, =GPIO_PORTB_AFSEL_R
+   69 0000001C 6008            STR              R0, [R1]
+   70 0000001E 4929            LDR              R1, =GPIO_PORTA_DIR_R
+   71 00000020 F04F 00F0       MOV              R0, #0xF0   ; PA4-7 output
+   72 00000024 6008            STR              R0, [R1]
+   73 00000026 4928            LDR              R1, =GPIO_PORTB_DIR_R
+
+
+
+ARM Macro Assembler    Page 3 
+
+
+   74 00000028 F04F 00FF       MOV              R0, #0xFF   ; PB4-7 output
+   75 0000002C 6008            STR              R0, [R1]
+   76 0000002E 4927            LDR              R1, =GPIO_PORTA_DEN_R ; enable 
+                                                            digital port
+   77 00000030 F04F 00FF       MOV              R0, #0xFF   ;
+   78 00000034 6008            STR              R0, [R1]
+   79 00000036 4926            LDR              R1, =GPIO_PORTB_DEN_R ; 
+   80 00000038 6008            STR              R0, [R1]
+   81 0000003A 4926            LDR              R1, =GPIO_PORTA_DATA_R 
+                                                            ; make PA4-7 high
+   82 0000003C 6808            LDR              R0, [R1]
+   83 0000003E F040 00F0       ORR              R0, R0, #0xF0
+   84 00000042 6008            STR              R0, [R1]
+   85 00000044 F000 F801       BL               delay
+   86 00000048 4770            BX               LR
+   87 0000004A         delay
+   88 0000004A F44F 7C48       LDR              R12, =800   ; wait 40 us 
+   89 0000004E         loopa
+   90 0000004E F1BC 0C01       SUBS             R12, R12, #1
+   91 00000052 D1FC            BNE              loopa
+   92 00000054 4770            BX               LR
+   93 00000056         
+   94 00000056         ;* * * * * * * * End of LCD_GPIOInit * * * * * * * * 
+   95 00000056         
+   96 00000056         
+   97 00000056         ; ************** LCD_WriteCommand **********************
+                       **
+   98 00000056         ; - Writes an 8-bit command to the LCD controller
+   99 00000056         ; - RS low during command write
+  100 00000056         ; 8-bit command passed in R0
+  101 00000056         ; 1) LCD_DATA = 0x00;    // Write 0 as MSB of command 
+  102 00000056         ; 2) LCD_CTRL = 0x10;    // Set CS, WR, RS low
+  103 00000056         ; 3) LCD_CTRL = 0x70;    // Set WR and RS high
+  104 00000056         ; 4) LCD_DATA = command; // Write 8-bit LSB command 
+  105 00000056         ; 5) LCD_CTRL = 0x10;    // Set WR and RS low
+  106 00000056         ; 6) wait 2 bus cycles     
+  107 00000056         ; 7) LCD_CTRL = 0xF0;    // Set CS, WR, RS high
+  108 00000056         ; ******************************************************
+                       **
+  109 00000056         ; Invariables: This function must not permanently modify
+                        registers R4 to R11
+  110 00000056         ;#define LCD_CTRL         (*((volatile unsigned long *)0
+                       x400043C0))     // PA4-7
+  111 00000056         ;#define LCD_DATA         (*((volatile unsigned long *)0
+                       x400053FC))     // PB0-7
+  112 00000056         ; Initialize all control signals high (off)
+  113 00000056         ;  PA4     RD  Read control signal             ---------
+                       ----------------
+  114 00000056         ;  PA5     WR  Write control signal            | PA7 | P
+                       A6 | PA5 | PA4 |
+  115 00000056         ;  PA6     RS  Register/Data select signal     | CS  | R
+                       S  | WR  | RD  |
+  116 00000056         ;  PA7     CS  Chip select signal              
+  117 00000056         LCD_WriteCommand
+  118 00000056 4920            LDR              R1, =GPIO_PORTB_DATA_R
+  119 00000058 F04F 0200       MOV              R2, #0x00
+  120 0000005C 600A            STR              R2, [R1]
+  121 0000005E 4B1D            LDR              R3, =GPIO_PORTA_DATA_R
+  122 00000060 F04F 0210       MOV              R2, #0x10
+
+
+
+ARM Macro Assembler    Page 4 
+
+
+  123 00000064 601A            STR              R2, [R3]
+  124 00000066 F04F 0270       MOV              R2, #0x70
+  125 0000006A 601A            STR              R2, [R3]
+  126 0000006C 6008            STR              R0, [R1]    ;store command (wri
+                                                            tten in R0) in LCD_
+                                                            DATA
+  127 0000006E F04F 0210       MOV              R2, #0x10
+  128 00000072 601A            STR              R2, [R3]
+  129 00000074 BF00            NOP
+  130 00000076 BF00            NOP
+  131 00000078 F042 02F0       ORR              R2, #0xF0
+  132 0000007C 601A            STR              R2, [R3]
+  133 0000007E 4770            BX               LR
+  134 00000080         ;* * * * * * * * End of LCD_WriteCommand * * * * * * * *
+                        
+  135 00000080         
+  136 00000080         ; ************** LCD_WriteData *************************
+                       **
+  137 00000080         ; - Writes 16-bit data to the LCD controller
+  138 00000080         ; - RS high during data write
+  139 00000080         ; 16-bit data passed in R0
+  140 00000080         ; 1) LCD_DATA = (data>>8);  // Write MSB to LCD data bus
+                       
+  141 00000080         ; 2) LCD_CTRL = 0x50;       // Set CS, WR low
+  142 00000080         ; 3) LCD_CTRL = 0x70;       // Set WR high
+  143 00000080         ; 4) LCD_DATA = data;       // Write LSB to LCD data bus
+                        
+  144 00000080         ; 5) LCD_CTRL = 0x50;       // Set WR low
+  145 00000080         ; 6) wait 2 bus cycles     
+  146 00000080         ; 7) LCD_CTRL = 0xF0;       // Set CS, WR high
+  147 00000080         ; ******************************************************
+                       **
+  148 00000080         ; Invariables: This function must not permanently modify
+                        registers R4 to R11
+  149 00000080         LCD_WriteData
+  150 00000080 4915            LDR              R1, =GPIO_PORTB_DATA_R
+  151 00000082 F100 0200       ADD              R2, R0, #0  ;need to shift R0 d
+                                                            ata before passing 
+                                                            into LCD_Data
+  152 00000086 EA4F 2212       LSR              R2, #8
+  153 0000008A 600A            STR              R2, [R1]    ;now written into L
+                                                            CD data bus
+  154 0000008C 4B11            LDR              R3, =GPIO_PORTA_DATA_R
+  155 0000008E 681A            LDR              R2, [R3]
+  156 00000090 F042 0250       ORR              R2, #0x50
+  157 00000094 F002 0250       AND              R2, #0x50
+  158 00000098 601A            STR              R2, [R3]
+  159 0000009A F042 0270       ORR              R2, #0x70
+  160 0000009E 601A            STR              R2, [R3]
+  161 000000A0 6008            STR              R0, [R1]
+  162 000000A2 F002 0250       AND              R2, #0x50
+  163 000000A6 F042 0250       ORR              R2, #0x50
+  164 000000AA 601A            STR              R2, [R3]
+  165 000000AC BF00            NOP
+  166 000000AE BF00            NOP
+  167 000000B0 F042 02F0       ORR              R2, #0xF0
+  168 000000B4 601A            STR              R2, [R3]
+  169 000000B6 4770            BX               LR
+  170 000000B8         ;* * * * * * * * End of LCD_WriteData * * * * * * * * 
+
+
+
+ARM Macro Assembler    Page 5 
+
+
+  171 000000B8         
+  172 000000B8         
+  173 000000B8         
+  174 000000B8         
+  175 000000B8                 ALIGN                        ; make sure the end
+                                                             of this section is
+                                                             aligned
+  176 000000B8                 END                          ; end of file
+              400FE108 
+              40004420 
+              40005420 
+              40004400 
+              40005400 
+              4000451C 
+              4000551C 
+              400043FC 
+              400053FC 
+Command Line: --debug --xref --cpu=Cortex-M4 --apcs=interwork --depend=.\lcd.d 
+-o.\lcd.o -IC:\Keil\ARM\RV31\INC -IC:\Keil\ARM\CMSIS\Include -IC:\Keil\ARM\Inc\
+Luminary --predefine="__EVAL SETA 1" --list=.\lcd.lst LCD.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+.text 00000000
+
+Symbol: .text
+   Definitions
+      At line 29 in file LCD.s
+   Uses
+      None
+Comment: .text unused
+LCD_GPIOInit 00000000
+
+Symbol: LCD_GPIOInit
+   Definitions
+      At line 56 in file LCD.s
+   Uses
+      At line 25 in file LCD.s
+Comment: LCD_GPIOInit used once
+LCD_WriteCommand 00000056
+
+Symbol: LCD_WriteCommand
+   Definitions
+      At line 117 in file LCD.s
+   Uses
+      At line 26 in file LCD.s
+Comment: LCD_WriteCommand used once
+LCD_WriteData 00000080
+
+Symbol: LCD_WriteData
+   Definitions
+      At line 149 in file LCD.s
+   Uses
+      At line 27 in file LCD.s
+Comment: LCD_WriteData used once
+delay 0000004A
+
+Symbol: delay
+   Definitions
+      At line 87 in file LCD.s
+   Uses
+      At line 85 in file LCD.s
+Comment: delay used once
+loopa 0000004E
+
+Symbol: loopa
+   Definitions
+      At line 89 in file LCD.s
+   Uses
+      At line 91 in file LCD.s
+Comment: loopa used once
+6 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Absolute symbols
+
+GPIO_PORTA_AFSEL_R 40004420
+
+Symbol: GPIO_PORTA_AFSEL_R
+   Definitions
+      At line 35 in file LCD.s
+   Uses
+      At line 65 in file LCD.s
+Comment: GPIO_PORTA_AFSEL_R used once
+GPIO_PORTA_DATA_R 400043FC
+
+Symbol: GPIO_PORTA_DATA_R
+   Definitions
+      At line 33 in file LCD.s
+   Uses
+      At line 81 in file LCD.s
+      At line 121 in file LCD.s
+      At line 154 in file LCD.s
+
+GPIO_PORTA_DEN_R 4000451C
+
+Symbol: GPIO_PORTA_DEN_R
+   Definitions
+      At line 36 in file LCD.s
+   Uses
+      At line 76 in file LCD.s
+Comment: GPIO_PORTA_DEN_R used once
+GPIO_PORTA_DIR_R 40004400
+
+Symbol: GPIO_PORTA_DIR_R
+   Definitions
+      At line 34 in file LCD.s
+   Uses
+      At line 70 in file LCD.s
+Comment: GPIO_PORTA_DIR_R used once
+GPIO_PORTB_AFSEL_R 40005420
+
+Symbol: GPIO_PORTB_AFSEL_R
+   Definitions
+      At line 39 in file LCD.s
+   Uses
+      At line 68 in file LCD.s
+Comment: GPIO_PORTB_AFSEL_R used once
+GPIO_PORTB_DATA_R 400053FC
+
+Symbol: GPIO_PORTB_DATA_R
+   Definitions
+      At line 37 in file LCD.s
+   Uses
+      At line 118 in file LCD.s
+      At line 150 in file LCD.s
+
+GPIO_PORTB_DEN_R 4000551C
+
+Symbol: GPIO_PORTB_DEN_R
+   Definitions
+      At line 40 in file LCD.s
+   Uses
+      At line 79 in file LCD.s
+Comment: GPIO_PORTB_DEN_R used once
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Absolute symbols
+
+GPIO_PORTB_DIR_R 40005400
+
+Symbol: GPIO_PORTB_DIR_R
+   Definitions
+      At line 38 in file LCD.s
+   Uses
+      At line 73 in file LCD.s
+Comment: GPIO_PORTB_DIR_R used once
+LCD_CTRL 400043C0
+
+Symbol: LCD_CTRL
+   Definitions
+      At line 42 in file LCD.s
+   Uses
+      None
+Comment: LCD_CTRL unused
+LCD_DATA 400053FC
+
+Symbol: LCD_DATA
+   Definitions
+      At line 43 in file LCD.s
+   Uses
+      None
+Comment: LCD_DATA unused
+SYSCTL_RCGC2_R 400FE108
+
+Symbol: SYSCTL_RCGC2_R
+   Definitions
+      At line 32 in file LCD.s
+   Uses
+      At line 57 in file LCD.s
+Comment: SYSCTL_RCGC2_R used once
+11 symbols
+350 symbols in table
